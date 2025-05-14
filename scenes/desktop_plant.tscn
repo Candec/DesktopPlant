@@ -1,0 +1,33 @@
+[gd_scene load_steps=6 format=3 uid="uid://e2epq1aagm4t"]
+
+[ext_resource type="PackedScene" uid="uid://co2rbpkxlb6co" path="res://scenes/cactus_generator.tscn" id="2_buvum"]
+[ext_resource type="PackedScene" uid="uid://bhfir77odgyib" path="res://scenes/camera.tscn" id="2_hmyg0"]
+
+[sub_resource type="ProceduralSkyMaterial" id="ProceduralSkyMaterial_buvum"]
+sky_horizon_color = Color(0.662243, 0.671743, 0.686743, 1)
+ground_horizon_color = Color(0.662243, 0.671743, 0.686743, 1)
+
+[sub_resource type="Sky" id="Sky_hmyg0"]
+sky_material = SubResource("ProceduralSkyMaterial_buvum")
+
+[sub_resource type="Environment" id="Environment_83b7o"]
+background_mode = 2
+sky = SubResource("Sky_hmyg0")
+tonemap_mode = 2
+glow_enabled = true
+
+[node name="Desktop_Plant" type="Node3D"]
+
+[node name="WorldEnvironment" type="WorldEnvironment" parent="."]
+environment = SubResource("Environment_83b7o")
+
+[node name="Camera" parent="." instance=ExtResource("2_hmyg0")]
+transform = Transform3D(1, 0, 0, 0, 0.971899, 0.235397, 0, -0.235397, 0.971899, 0.00969815, 1.90493, 1.97231)
+script = null
+
+[node name="CactusGenerator" parent="." instance=ExtResource("2_buvum")]
+thickness_variance = 0.05
+distance_variance = 0.002
+tilt_variance = 0.015
+max_height = 3.0
+flower_probability = 0.0

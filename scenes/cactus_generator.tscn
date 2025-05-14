@@ -1,0 +1,30 @@
+[gd_scene load_steps=5 format=3 uid="uid://co2rbpkxlb6co"]
+
+[ext_resource type="Script" uid="uid://2qrs103klnxg" path="res://cactus_generator.gd" id="1_ie4ey"]
+[ext_resource type="PackedScene" uid="uid://ci5p62oeeh1kc" path="res://DebugMenu.tscn" id="2_ny18b"]
+
+[sub_resource type="StandardMaterial3D" id="StandardMaterial3D_ny18b"]
+shading_mode = 0
+vertex_color_use_as_albedo = true
+albedo_color = Color(0.994132, 0.503399, 0.836871, 1)
+
+[sub_resource type="ImmediateMesh" id="ImmediateMesh_ny18b"]
+
+[node name="CactusGenerator" type="Node3D"]
+script = ExtResource("1_ie4ey")
+ring_growth_speed = 0.25
+ring_distance = 0.2
+tilt_variance = 2.0
+vertices_per_ring = 16
+
+[node name="CactusMesh" type="MeshInstance3D" parent="."]
+
+[node name="Spikes" type="MultiMeshInstance3D" parent="."]
+
+[node name="Timer" type="Timer" parent="."]
+
+[node name="Control" parent="." instance=ExtResource("2_ny18b")]
+
+[node name="DebugVisualizer" type="MeshInstance3D" parent="."]
+material_override = SubResource("StandardMaterial3D_ny18b")
+mesh = SubResource("ImmediateMesh_ny18b")
