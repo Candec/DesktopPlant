@@ -43,3 +43,9 @@ offset_top = 163.0
 offset_right = 46.0
 offset_bottom = 194.0
 text = "Load"
+
+[node name="StyleSelector" type="OptionButton" parent="."]
+layout_mode = 0
+offset_top = 212.0
+offset_right = 32.0
+offset_bottom = 232.0

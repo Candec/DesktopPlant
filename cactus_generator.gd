@@ -1,6 +1,7 @@
 extends Node3D
 
 @export var ring_growth_speed: float = 1.0
+@export var ring_rise_speed: float = 2.0
 @export var ring_thickness: float = 0.5
 @export var ring_distance: float = 0.5
 @export var ring_tilt: float = 0.0
@@ -12,6 +13,13 @@ extends Node3D
 @export var branch_chance: float = 0.1
 @export var branch_angle_range: float = 30.0
 @export var flower_probability: float = 0.3
+@export var segments_per_point: int = 1
+@export var valley_depth: float = 0.2
+@export var twist_enabled: bool = false
+@export var twist_amount: float = 5.0  # degrees per ring
+@export var taper_top_enabled: bool = false
+@export var taper_start_ratio: float = 0.85  # start tapering after 85% height
+
 
 
 var rings := []
@@ -24,9 +32,27 @@ var is_paused := false
 
 const RingData = preload("res://RingData.gd")
 
+# --- Preloaded Shaders ---
+var ridge_shader := preload("res://shaders/ridge_shader.gdshader")
+var cell_shader := preload("res://shaders/cell_shader.gdshader")
+var pixel_shader := preload("res://shaders/pixel_shader.gdshader")
+var cartoon_shader := preload("res://shaders/cartoon_shader.gdshader")
+
+# --- Materials for each style ---
+var ridge_mat := ShaderMaterial.new()
+var cell_mat := ShaderMaterial.new()
+var pixel_mat := ShaderMaterial.new()
+var cartoon_mat := ShaderMaterial.new()
 
 func _ready():
 	_spawn_initial_rings()
+	ridge_mat.shader = ridge_shader
+	cell_mat.shader = cell_shader
+	pixel_mat.shader = pixel_shader
+	cartoon_mat.shader = cartoon_shader
+	
+	# Default material at start
+	$CactusMesh.material_override = ridge_mat
 
 func _process(delta):
 	if is_paused or cactus_height >= max_height:
@@ -44,30 +70,63 @@ func _spawn_initial_rings():
 	rings.append(_create_ring(Vector3(0, ring_distance, 0), true))
 
 func _create_ring(pos: Vector3, delay := false) -> RingData:
-	var ring := RingData.new()
+	var ring = RingData.new()
 	ring.center = pos
 	ring.radius = 0.0
 	ring.thickness = ring_thickness + randf_range(-thickness_variance, thickness_variance)
 	ring.tilt = ring_tilt + randf_range(-tilt_variance, tilt_variance)
-	# Ring start position
-	#ring.progress = 0.0 if delay else 0.0
 	ring.progress = 0.0
+	ring.active = not delay
+	ring.target_y = pos.y
+	ring.center.y = pos.y - ring_distance if delay else pos.y
+	ring.segments_per_point = segments_per_point
+	ring.valley_depth = valley_depth * (1.0 - cactus_height / max_height)
+	
+	if twist_enabled:
+		ring.twist_offset = deg_to_rad(rings.size() * twist_amount)
+	
+	if taper_top_enabled:
+		var height_ratio = cactus_height / max_height
+		if height_ratio > taper_start_ratio:
+			var fade = inverse_lerp(taper_start_ratio, 1.0, height_ratio)
+			ring.valley_depth = valley_depth * (1.0 - fade)
+		else:
+			ring.valley_depth = valley_depth
+	else:
+		ring.valley_depth = valley_depth
 	return ring
 
-func _update_ring_growth(delta: float):
-	for ring in rings:
-		ring.progress += delta * ring_growth_speed
-		if ring.progress > 1.0:
-			ring.progress = 1.0
-		ring.radius = ring.progress * ring.thickness
 
-	if rings[-1].progress >= 0.5:
-		var next_pos = rings[-1].center + Vector3(0, ring_distance + randf_range(-distance_variance, distance_variance), 0)
-		if cactus_height + ring_distance < max_height:
-			rings.append(_create_ring(next_pos, true))
-			cactus_height += ring_distance
-			if randf() < branch_chance:
-				_spawn_branch_from(rings[-1])
+func _update_ring_growth(delta: float):
+	for i in range(rings.size()):
+		var ring = rings[i]
+
+		# Smooth rise toward target Y
+		if ring.center.y < ring.target_y:
+			ring.center.y = move_toward(ring.center.y, ring.target_y, delta * ring_rise_speed)
+
+		# Grow only if active
+		if ring.active:
+			ring.progress += delta * ring_growth_speed
+			ring.progress = clamp(ring.progress, 0.0, 1.0)
+			ring.radius = ring.progress * ring.thickness
+
+	# Spawn new ring logic
+	var last = rings[-1]
+	if last.progress >= 0.5 and not last.has_meta("spawned_next"):
+		var next_pos = last.center + Vector3(0, ring_distance + randf_range(-distance_variance, distance_variance), 0)
+		var new_ring = _create_ring(next_pos, true)
+		rings.append(new_ring)
+		cactus_height += ring_distance
+		last.set_meta("spawned_next", true)
+
+	# Activate next ring if previous is halfway grown
+	for i in range(1, rings.size()):
+		var prev = rings[i - 1]
+		var curr = rings[i]
+		if not curr.active and prev.progress >= 0.5:
+			curr.active = true
+
 
 func _spawn_branch_from(base_ring: RingData):
 	var angle = randf_range(-branch_angle_range, branch_angle_range)
@@ -91,18 +150,47 @@ func _spawn_flower(pos: Vector3):
 func _generate_mesh():
 	var st = SurfaceTool.new()
 	st.begin(Mesh.PRIMITIVE_TRIANGLES)
+
 	for i in range(rings.size() - 1):
-		var r1 = rings[i].get_vertices(vertices_per_ring)
-		var r2 = rings[i + 1].get_vertices(vertices_per_ring)
+		var ring1 = rings[i].get_vertices(vertices_per_ring)
+		var ring2 = rings[i + 1].get_vertices(vertices_per_ring)
+
 		for j in range(vertices_per_ring):
-			var n = (j + 1) % vertices_per_ring
-			st.add_vertex(r1[j])
-			st.add_vertex(r2[n])
-			st.add_vertex(r2[j])
-			st.add_vertex(r1[j])
-			st.add_vertex(r1[n])
-			st.add_vertex(r2[n])
-	mesh_instance.mesh = st.commit()
+			var next = (j + 1) % vertices_per_ring
+
+			# Triangle 1
+			st.add_vertex(ring2[j])
+			st.add_vertex(ring1[j])
+			st.add_vertex(ring2[next])
+
+			# Triangle 2
+			st.add_vertex(ring2[next])
+			st.add_vertex(ring1[j])
+			st.add_vertex(ring1[next])
+
+	# Cap the top
+	generate_cap(st)
+
+	var mesh = st.commit()
+	$CactusMesh.mesh = mesh
+
+func generate_cap(st: SurfaceTool):
+	if rings.is_empty():
+		return
+
+	var last_ring = rings[-1]
+	var verts = last_ring.get_vertices(vertices_per_ring)
+
+	# Create a tip point slightly above the last ring
+	var tip = last_ring.center + Vector3(0, last_ring.thickness * 0.05, 0)
+
+	# Generate a triangle fan from the tip to the ring
+	for i in range(vertices_per_ring):
+		var next = (i + 1) % vertices_per_ring
+		st.add_vertex(tip)
+		st.add_vertex(verts[i])
+		st.add_vertex(verts[next])
+
 
 func save_cactus(path: String):
 	var file = FileAccess.open(path, FileAccess.WRITE)
@@ -198,3 +286,6 @@ func _draw_debug():
 	
 	mesh.surface_end()
 	$DebugVisualizer.mesh = mesh
+
+func set_cactus_material(mat: ShaderMaterial):
+	$CactusMesh.material_override = mat

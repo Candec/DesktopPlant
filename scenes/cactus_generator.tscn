@@ -12,10 +12,8 @@ albedo_color = Color(0.994132, 0.503399, 0.836871, 1)
 
 [node name="CactusGenerator" type="Node3D"]
 script = ExtResource("1_ie4ey")
-ring_growth_speed = 0.25
-ring_distance = 0.2
-tilt_variance = 2.0
 vertices_per_ring = 16
+segments_per_point = 3
 
 [node name="CactusMesh" type="MeshInstance3D" parent="."]
 
