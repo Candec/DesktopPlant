@@ -1,5 +1,6 @@
 extends Node3D
 
+@export var cactus_growth_speed: float = 1.0  # Overall growth speed of the cactus
 @export var ring_growth_speed: float = 1.0
 @export var ring_rise_speed: float = 2.0
 @export var ring_thickness: float = 0.5
@@ -80,20 +81,23 @@ func _create_ring(pos: Vector3, delay := false) -> RingData:
 	ring.target_y = pos.y
 	ring.center.y = pos.y - ring_distance if delay else pos.y
 	ring.segments_per_point = segments_per_point
-	ring.valley_depth = valley_depth * (1.0 - cactus_height / max_height)
+
+	# Gradual tapering as the cactus grows
+	var height_ratio = cactus_height / max_height
+	if height_ratio > 0.85:  # Start tapering after 85% height
+		var taper_factor = 1.0 - (height_ratio - 0.85) * 4.0  # Reduce radius at the top
+		ring.radius *= taper_factor
+
+	# Smoothly reduce the valley depth at the top
+	if height_ratio > 0.85:
+		var fade = inverse_lerp(0.85, 1.0, height_ratio)
+		ring.valley_depth = valley_depth * (1.0 - fade)
+	else:
+		ring.valley_depth = valley_depth
 	
 	if twist_enabled:
 		ring.twist_offset = deg_to_rad(rings.size() * twist_amount)
-	
-	if taper_top_enabled:
-		var height_ratio = cactus_height / max_height
-		if height_ratio > taper_start_ratio:
-			var fade = inverse_lerp(taper_start_ratio, 1.0, height_ratio)
-			ring.valley_depth = valley_depth * (1.0 - fade)
-		else:
-			ring.valley_depth = valley_depth
-	else:
-		ring.valley_depth = valley_depth
+
 	return ring
 
 
@@ -101,15 +105,24 @@ func _update_ring_growth(delta: float):
 	for i in range(rings.size()):
 		var ring = rings[i]
 
-		# Smooth rise toward target Y
+		# Smooth rise toward target Y (based on rise speed)
 		if ring.center.y < ring.target_y:
 			ring.center.y = move_toward(ring.center.y, ring.target_y, delta * ring_rise_speed)
 
-		# Grow only if active
-		if ring.active:
-			ring.progress += delta * ring_growth_speed
-			ring.progress = clamp(ring.progress, 0.0, 1.0)
-			ring.radius = ring.progress * ring.thickness
+		# Gradual slowdown at the top of the cactus (as before)
+		var height_ratio = cactus_height / max_height
+		if height_ratio > 0.85:  # After 85% of the cactus height, slow down growth
+			var growth_slowdown = (1.0 - height_ratio) * 0.5  # Adjust slowdown factor
+			ring.progress += delta * cactus_growth_speed * growth_slowdown
+		else:
+			# Regular growth speed for rings (controlled by the new cactus growth speed)
+			ring.progress += delta * cactus_growth_speed
+
+		# Ensure that progress doesn't exceed 1 (prevent overgrowth)
+		ring.progress = min(ring.progress, 1.0)
+
+		# Update radius and apply tapering for the top rings
+		ring.radius = ring.progress * ring.thickness
 
 	# Spawn new ring logic
 	var last = rings[-1]
@@ -126,6 +139,7 @@ func _update_ring_growth(delta: float):
 		var curr = rings[i]
 		if not curr.active and prev.progress >= 0.5:
 			curr.active = true
+
 
 
 func _spawn_branch_from(base_ring: RingData):
@@ -182,14 +196,27 @@ func generate_cap(st: SurfaceTool):
 	var verts = last_ring.get_vertices(vertices_per_ring)
 
 	# Create a tip point slightly above the last ring
-	var tip = last_ring.center + Vector3(0, last_ring.thickness * 0.05, 0)
+	var tip = last_ring.center + Vector3(0, last_ring.thickness * 0.01, 0)
 
 	# Generate a triangle fan from the tip to the ring
-	for i in range(vertices_per_ring):
-		var next = (i + 1) % vertices_per_ring
-		st.add_vertex(tip)
-		st.add_vertex(verts[i])
-		st.add_vertex(verts[next])
+	# Only apply the smoothness once the final ring is fully grown (progress == 1.0)
+	if last_ring.progress >= 1.0:
+		for i in range(vertices_per_ring):
+			var next = (i + 1) % vertices_per_ring
+			st.add_vertex(tip)
+			st.add_vertex(verts[i])
+			st.add_vertex(verts[next])
+	else:
+		# If the last ring is still growing, smoothly blend the vertices to avoid hard edges
+		for i in range(vertices_per_ring):
+			var next = (i + 1) % vertices_per_ring
+			# Create a slight interpolation for the tip based on progress
+			var smooth_tip = tip + (Vector3(0, 0.1, 0) * (1.0 - last_ring.progress))
+			st.add_vertex(smooth_tip)
+			st.add_vertex(verts[i])
+			st.add_vertex(verts[next])
+
+
 
 
 func save_cactus(path: String):

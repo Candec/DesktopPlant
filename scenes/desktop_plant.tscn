@@ -21,18 +21,17 @@ glow_enabled = true
 [node name="WorldEnvironment" type="WorldEnvironment" parent="."]
 environment = SubResource("Environment_83b7o")
 
-[node name="Camera" parent="." instance=ExtResource("2_hmyg0")]
-transform = Transform3D(1, 0, 0, 0, 0.956509, 0.291704, 0, -0.291704, 0.956509, 0.00969815, 2.23115, 1.97231)
-script = null
-
 [node name="CactusGenerator" parent="." instance=ExtResource("2_buvum")]
-ring_rise_speed = 0.5
+cactus_growth_speed = 0.005
+ring_rise_speed = 0.005
 thickness_variance = 0.05
 distance_variance = 0.002
 tilt_variance = 0.0
-max_height = 5.0
+max_height = 3.0
 branch_angle_range = 0.0
 flower_probability = 0.0
 segments_per_point = 4
 valley_depth = 0.4
 twist_amount = -15.0
+
+[node name="Camera" parent="." instance=ExtResource("2_hmyg0")]
