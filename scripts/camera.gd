@@ -33,7 +33,6 @@ func _input(event: InputEvent) -> void:
 		return
 
 func _process(_delta: float) -> void:
-	print("click")
 	# Apply inertia-based rotation if no input is detected
 	if !Input.is_action_pressed("left_click"):
 		rotate_from_mouse_vector(angular_velocity)

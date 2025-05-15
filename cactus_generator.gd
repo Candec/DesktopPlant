@@ -1,23 +1,23 @@
 extends Node3D
 
-@export var cactus_growth_speed: float = 1.0  # Overall growth speed of the cactus
+@export var cactus_growth_speed: float = 0.005  # Overall growth speed of the cactus
 @export var ring_growth_speed: float = 1.0
-@export var ring_rise_speed: float = 2.0
+@export var ring_rise_speed: float = 0.005
 @export var ring_thickness: float = 0.5
 @export var ring_distance: float = 0.5
 @export var ring_tilt: float = 0.0
-@export var thickness_variance: float = 0.1
-@export var distance_variance: float = 0.1
-@export var tilt_variance: float = 5.0
-@export var max_height: float = 10.0
-@export var vertices_per_ring: int = 8
+@export var thickness_variance: float = 0.05
+@export var distance_variance: float = 0.002
+@export var tilt_variance: float = 0.0
+@export var max_height: float = 3.0
+@export var vertices_per_ring: int = 20
 @export var branch_chance: float = 0.1
-@export var branch_angle_range: float = 30.0
-@export var flower_probability: float = 0.3
-@export var segments_per_point: int = 1
-@export var valley_depth: float = 0.2
+@export var branch_angle_range: float = 0.0
+@export var flower_probability: float = 0.0
+@export var segments_per_point: int = 4
+@export var valley_depth: float = 0.4
 @export var twist_enabled: bool = false
-@export var twist_amount: float = 5.0  # degrees per ring
+@export var twist_amount: float = 15.0  # degrees per ring
 @export var taper_top_enabled: bool = false
 @export var taper_start_ratio: float = 0.85  # start tapering after 85% height
 
@@ -182,42 +182,8 @@ func _generate_mesh():
 			st.add_vertex(ring1[j])
 			st.add_vertex(ring1[next])
 
-	# Cap the top
-	generate_cap(st)
-
 	var mesh = st.commit()
 	$CactusMesh.mesh = mesh
-
-func generate_cap(st: SurfaceTool):
-	if rings.is_empty():
-		return
-
-	var last_ring = rings[-1]
-	var verts = last_ring.get_vertices(vertices_per_ring)
-
-	# Create a tip point slightly above the last ring
-	var tip = last_ring.center + Vector3(0, last_ring.thickness * 0.01, 0)
-
-	# Generate a triangle fan from the tip to the ring
-	# Only apply the smoothness once the final ring is fully grown (progress == 1.0)
-	if last_ring.progress >= 1.0:
-		for i in range(vertices_per_ring):
-			var next = (i + 1) % vertices_per_ring
-			st.add_vertex(tip)
-			st.add_vertex(verts[i])
-			st.add_vertex(verts[next])
-	else:
-		# If the last ring is still growing, smoothly blend the vertices to avoid hard edges
-		for i in range(vertices_per_ring):
-			var next = (i + 1) % vertices_per_ring
-			# Create a slight interpolation for the tip based on progress
-			var smooth_tip = tip + (Vector3(0, 0.1, 0) * (1.0 - last_ring.progress))
-			st.add_vertex(smooth_tip)
-			st.add_vertex(verts[i])
-			st.add_vertex(verts[next])
-
-
-
 
 func save_cactus(path: String):
 	var file = FileAccess.open(path, FileAccess.WRITE)

@@ -22,16 +22,10 @@ glow_enabled = true
 environment = SubResource("Environment_83b7o")
 
 [node name="CactusGenerator" parent="." instance=ExtResource("2_buvum")]
-cactus_growth_speed = 0.005
-ring_rise_speed = 0.005
-thickness_variance = 0.05
-distance_variance = 0.002
-tilt_variance = 0.0
-max_height = 3.0
-branch_angle_range = 0.0
-flower_probability = 0.0
+cactus_growth_speed = 1.0
+ring_rise_speed = 1.0
+vertices_per_ring = 20
 segments_per_point = 4
-valley_depth = 0.4
 twist_amount = -15.0
 
 [node name="Camera" parent="." instance=ExtResource("2_hmyg0")]
