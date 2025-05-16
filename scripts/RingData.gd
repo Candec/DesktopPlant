@@ -11,6 +11,9 @@ var valley_depth: float = 0.1
 var active: bool = true
 var target_y: float = 0.0
 var twist_offset: float = 0.0  # in radians
+var start_y: float
+var index: int
+var normalized_index: float  # 0.0 = bottom, 1.0 = top
 
 
 func get_vertices(vertices_count: int) -> Array[Vector3]:

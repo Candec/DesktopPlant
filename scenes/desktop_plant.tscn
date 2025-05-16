@@ -22,11 +22,12 @@ glow_enabled = true
 environment = SubResource("Environment_83b7o")
 
 [node name="CactusGenerator" parent="." instance=ExtResource("2_buvum")]
-cactus_growth_speed = 1.0
-ring_rise_speed = 1.0
-vertices_per_ring = 20
+ring_distance = 0.3
+vertices_per_ring = 26
 segments_per_point = 4
 twist_amount = -15.0
+total_growth_duration = 30.0
+growth_speed_multiplier = 2.0
 
 [node name="Camera" parent="." instance=ExtResource("2_hmyg0")]
 transform = Transform3D(1, 0, 0, 0, 0.852932, 0.522022, 0, -0.522022, 0.852932, 0, 1.20047, 0)

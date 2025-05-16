@@ -21,6 +21,12 @@ extends Node3D
 @export var taper_top_enabled: bool = false
 @export var taper_start_ratio: float = 0.85  # start tapering after 85% height
 
+@export_category("time")
+@export var total_growth_duration: float = 300.0  # Total time in seconds to fully grow
+@export var growth_speed_multiplier: float = 1.0  # Adjust at runtime for debugging or slow growth
+
+var growth_time_elapsed := 0.0
+var growth_progress := 0.0  # Ranges from 0.0 to 1.0
 
 
 var rings := []
@@ -67,8 +73,26 @@ func _spawn_initial_rings():
 	branches.clear()
 	flowers.clear()
 	cactus_height = 0.0
-	rings.append(_create_ring(Vector3.ZERO))
-	rings.append(_create_ring(Vector3(0, ring_distance, 0), true))
+
+	var current_height := 0.0
+	var ring_count := 0
+
+	while current_height <= max_height:
+		var pos = Vector3(0, current_height, 0)
+		var ring = _create_ring(pos)
+		ring.index = ring_count
+		rings.append(ring)
+
+		current_height += ring_distance + randf_range(-distance_variance, distance_variance)
+		ring_count += 1
+
+	# Assign normalized_index after ring count is known
+	for i in range(rings.size()):
+		#rings[i].normalized_index = float(i) / float(rings.size() - 1)
+		var ring = rings[i]
+		ring.index = i
+		ring.normalized_index = float(i) / max(rings.size() - 1, 1)
+
 
 func _create_ring(pos: Vector3, delay := false) -> RingData:
 	var ring = RingData.new()
@@ -77,9 +101,10 @@ func _create_ring(pos: Vector3, delay := false) -> RingData:
 	ring.thickness = ring_thickness + randf_range(-thickness_variance, thickness_variance)
 	ring.tilt = ring_tilt + randf_range(-tilt_variance, tilt_variance)
 	ring.progress = 0.0
-	ring.active = not delay
-	ring.target_y = pos.y
-	ring.center.y = pos.y - ring_distance if delay else pos.y
+	ring.active = true
+	ring.start_y = pos.y - ring_distance # Underground start (can tweak multiplier)
+	ring.target_y = pos.y + ring_distance * 2
+	ring.center.y = ring.start_y  # Start visually lower
 	ring.segments_per_point = segments_per_point
 
 	# Gradual tapering as the cactus grows
@@ -102,43 +127,26 @@ func _create_ring(pos: Vector3, delay := false) -> RingData:
 
 
 func _update_ring_growth(delta: float):
-	for i in range(rings.size()):
-		var ring = rings[i]
+	growth_time_elapsed += delta * growth_speed_multiplier
+	growth_progress = clamp(growth_time_elapsed / total_growth_duration, 0.0, 1.0)
 
-		# Smooth rise toward target Y (based on rise speed)
-		if ring.center.y < ring.target_y:
-			ring.center.y = move_toward(ring.center.y, ring.target_y, delta * ring_rise_speed)
+	var full_ring_count := int(growth_progress * rings.size())
+	var fractional_part := growth_progress * rings.size() - full_ring_count
 
-		# Gradual slowdown at the top of the cactus (as before)
-		var height_ratio = cactus_height / max_height
-		if height_ratio > 0.85:  # After 85% of the cactus height, slow down growth
-			var growth_slowdown = (1.0 - height_ratio) * 0.5  # Adjust slowdown factor
-			ring.progress += delta * cactus_growth_speed * growth_slowdown
-		else:
-			# Regular growth speed for rings (controlled by the new cactus growth speed)
-			ring.progress += delta * cactus_growth_speed
+	for ring in rings:
+		var index = ring.index
+		var ring_start = ring.normalized_index * 0.99
+		var ring_end = ring_start + 0.25
+		var t = inverse_lerp(ring_start, ring_end, growth_progress)
+		t = clamp(t, 0.0, 1.0)
 
-		# Ensure that progress doesn't exceed 1 (prevent overgrowth)
-		ring.progress = min(ring.progress, 1.0)
+		var eased = ease(t, -2.0)  # optional ease-in
 
-		# Update radius and apply tapering for the top rings
+		ring.progress = eased
+		#ring.progress = t
 		ring.radius = ring.progress * ring.thickness
+		ring.center.y = lerp(ring.start_y, ring.target_y, eased)
 
-	# Spawn new ring logic
-	var last = rings[-1]
-	if last.progress >= 0.5 and not last.has_meta("spawned_next"):
-		var next_pos = last.center + Vector3(0, ring_distance + randf_range(-distance_variance, distance_variance), 0)
-		var new_ring = _create_ring(next_pos, true)
-		rings.append(new_ring)
-		cactus_height += ring_distance
-		last.set_meta("spawned_next", true)
-
-	# Activate next ring if previous is halfway grown
-	for i in range(1, rings.size()):
-		var prev = rings[i - 1]
-		var curr = rings[i]
-		if not curr.active and prev.progress >= 0.5:
-			curr.active = true
 
 
 
