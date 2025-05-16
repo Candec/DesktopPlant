@@ -31,7 +31,7 @@ var is_paused := false
 
 @onready var mesh_instance: MeshInstance3D = $CactusMesh
 
-const RingData = preload("res://RingData.gd")
+const RingData = preload("res://scripts/RingData.gd")
 
 # --- Preloaded Shaders ---
 var ridge_shader := preload("res://shaders/ridge_shader.gdshader")

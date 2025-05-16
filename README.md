@@ -59,9 +59,9 @@ A comprehensive roadmap for developing the Desktop Plant project in Godot 4.4. I
 
 - [ ] **Reactive Plant Behavior**
   - Respond to:
-    - Mouse movement.
-    - Audio/music input.
-    - Desktop activity (e.g., idle mode).
+	- Mouse movement.
+	- Audio/music input.
+	- Desktop activity (e.g., idle mode).
 
 ---
 
@@ -102,5 +102,3 @@ A comprehensive roadmap for developing the Desktop Plant project in Godot 4.4. I
   - Folder-based or GDExtension-based plugin structure.
 
 ---
-
-

@@ -29,4 +29,3 @@ segments_per_point = 4
 twist_amount = -15.0
 
 [node name="Camera" parent="." instance=ExtResource("2_hmyg0")]
-transform = Transform3D(1, 0, 0, 0, 0.852932, 0.522022, 0, -0.522022, 0.852932, 0, 1.20047, 0)
