@@ -94,10 +94,12 @@ func _spawn_initial_rings():
 		ring.normalized_index = float(i) / max(rings.size() - 1, 1)
 
 
-func _create_ring(pos: Vector3, delay := false) -> RingData:
+func _create_ring(pos: Vector3) -> RingData:
 	var ring = RingData.new()
 	ring.center = pos
 	ring.radius = 0.0
+	ring.tip_thickness_variance = ring_thickness / 2 + randf_range(-thickness_variance, thickness_variance)
+	ring.tip_target_y = pos.y + randf_range(-ring_distance, ring_distance)
 	ring.thickness = ring_thickness + randf_range(-thickness_variance, thickness_variance)
 	ring.tilt = ring_tilt + randf_range(-tilt_variance, tilt_variance)
 	ring.progress = 0.0
@@ -131,19 +133,22 @@ func _update_ring_growth(delta: float):
 	growth_progress = clamp(growth_time_elapsed / total_growth_duration, 0.0, 1.0)
 
 	var full_ring_count := int(growth_progress * rings.size())
-	var fractional_part := growth_progress * rings.size() - full_ring_count
 
 	for ring in rings:
-		var index = ring.index
-		var ring_start = ring.normalized_index * 0.99
+		if ring.index == rings.size() - 1:
+			ring.thickness = 0.0
+			ring.target_y = ring.tip_target_y
+		if ring.index == rings.size() - 2:
+			ring.thickness = ring.tip_thickness_variance
+		
+		var ring_start = ring.normalized_index * 0.8
 		var ring_end = ring_start + 0.25
 		var t = inverse_lerp(ring_start, ring_end, growth_progress)
 		t = clamp(t, 0.0, 1.0)
 
-		var eased = ease(t, -2.0)  # optional ease-in
+		var eased = ease(t, -2.0)  # optional ease-out
 
 		ring.progress = eased
-		#ring.progress = t
 		ring.radius = ring.progress * ring.thickness
 		ring.center.y = lerp(ring.start_y, ring.target_y, eased)
 

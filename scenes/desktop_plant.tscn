@@ -23,9 +23,11 @@ environment = SubResource("Environment_83b7o")
 
 [node name="CactusGenerator" parent="." instance=ExtResource("2_buvum")]
 ring_distance = 0.3
+thickness_variance = 0.0
 vertices_per_ring = 26
 segments_per_point = 4
-twist_amount = -15.0
+twist_enabled = true
+twist_amount = 5.5
 total_growth_duration = 30.0
 growth_speed_multiplier = 2.0
 

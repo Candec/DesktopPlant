@@ -5,11 +5,13 @@ var center: Vector3
 var radius: float
 var tilt: float
 var thickness: float
+var tip_thickness_variance: float
 var progress: float = 0.0
 var segments_per_point: int = 1
 var valley_depth: float = 0.1
 var active: bool = true
 var target_y: float = 0.0
+var tip_target_y: float
 var twist_offset: float = 0.0  # in radians
 var start_y: float
 var index: int
