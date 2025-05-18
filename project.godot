@@ -17,7 +17,7 @@ config/icon="res://addons/proc_cactus/icon.svg"
 
 [editor_plugins]
 
-enabled=PackedStringArray("res://addons/proc_cactus/plugin.cfg")
+enabled=PackedStringArray()
 
 [input]
 

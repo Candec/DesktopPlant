@@ -24,5 +24,6 @@ segments_per_point = 3
 [node name="Control" parent="." instance=ExtResource("2_ny18b")]
 
 [node name="DebugVisualizer" type="MeshInstance3D" parent="."]
+visible = false
 material_override = SubResource("StandardMaterial3D_ny18b")
 mesh = SubResource("ImmediateMesh_ny18b")

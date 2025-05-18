@@ -54,6 +54,10 @@ var cartoon_mat := ShaderMaterial.new()
 func _ready():
 	_spawn_initial_rings()
 	ridge_mat.shader = ridge_shader
+	ridge_mat.set_shader_parameter("light_direction", Vector3(-0.4, -1.0, -0.2))
+	ridge_mat.set_shader_parameter("noise_texture", load("res://textures/noise.png"))
+	ridge_mat.set_shader_parameter("color_crest", Color(0.9, 0.85, 0.7))  # pale yellow-white
+	ridge_mat.set_shader_parameter("highlight_intensity", 0.25)  # soft
 	cell_mat.shader = cell_shader
 	pixel_mat.shader = pixel_shader
 	cartoon_mat.shader = cartoon_shader
@@ -135,19 +139,35 @@ func _update_ring_growth(delta: float):
 	var full_ring_count := int(growth_progress * rings.size())
 
 	for ring in rings:
-		if ring.index == rings.size() - 1:
-			ring.thickness = 0.0
-			ring.target_y = ring.tip_target_y
-		if ring.index == rings.size() - 2:
-			ring.thickness = ring.tip_thickness_variance
 		
 		var ring_start = ring.normalized_index * 0.8
 		var ring_end = ring_start + 0.25
 		var t = inverse_lerp(ring_start, ring_end, growth_progress)
 		t = clamp(t, 0.0, 1.0)
 
-		var eased = ease(t, -2.0)  # optional ease-out
+		var eased = ease(t, -1.5)  # optional ease-out
 
+		# Last ring
+		if ring.index == rings.size() - 1:
+			ring.thickness = 0.0
+			ring.target_y = ring.tip_target_y
+		# Before last ring for tampering
+		if ring.index == rings.size() - 2:
+			ring.thickness = ring.tip_thickness_variance
+			#ring.target_y = ring.target_y * 0.75
+		#
+		#if ring.index == rings.size() - 3:
+			#ring.thickness = ring.tip_thickness_variance
+			#ring.target_y = ring.target_y * 0.25
+		
+		#if ring.index == 0:
+			#t = growth_progress
+			#eased = ease(-2.0, 2)
+			#ring.progress = eased
+			#ring.radius = eased * ring.thickness
+			#ring.center.y = inverse_lerp(ring.start_y, ring.target_y, eased)
+			
+		# General logic
 		ring.progress = eased
 		ring.radius = ring.progress * ring.thickness
 		ring.center.y = lerp(ring.start_y, ring.target_y, eased)
@@ -175,6 +195,7 @@ func _spawn_flower(pos: Vector3):
 	add_child(flower)
 
 func _generate_mesh():
+	var segments := vertices_per_ring  # how many "quads" to build
 	var st = SurfaceTool.new()
 	st.begin(Mesh.PRIMITIVE_TRIANGLES)
 
@@ -182,21 +203,56 @@ func _generate_mesh():
 		var ring1 = rings[i].get_vertices(vertices_per_ring)
 		var ring2 = rings[i + 1].get_vertices(vertices_per_ring)
 
-		for j in range(vertices_per_ring):
-			var next = (j + 1) % vertices_per_ring
+		for j in range(segments):  # loop over quads
+			var next = j + 1
+
+			var u = float(j) / float(segments)
+			var u_next = float(next) / float(segments)
+			var v = float(i) / float(rings.size())
+			var v_next = float(i + 1) / float(rings.size())
 
 			# Triangle 1
+			st.set_color(_get_vertex_angle_color(ring2[j], rings[i + 1].center))
+			st.set_uv(Vector2(u, v_next))
 			st.add_vertex(ring2[j])
+
+			st.set_color(_get_vertex_angle_color(ring1[j], rings[i].center))
+			st.set_uv(Vector2(u, v))
 			st.add_vertex(ring1[j])
+
+			st.set_color(_get_vertex_angle_color(ring2[next], rings[i + 1].center))
+			st.set_uv(Vector2(u_next, v_next))
 			st.add_vertex(ring2[next])
 
 			# Triangle 2
+			st.set_color(_get_vertex_angle_color(ring2[next], rings[i + 1].center))
+			st.set_uv(Vector2(u_next, v_next))
 			st.add_vertex(ring2[next])
+
+			st.set_color(_get_vertex_angle_color(ring1[j], rings[i].center))
+			st.set_uv(Vector2(u, v))
 			st.add_vertex(ring1[j])
+
+			st.set_uv(Vector2(u_next, v))
+			st.set_color(_get_vertex_angle_color(ring1[next], rings[i].center))
 			st.add_vertex(ring1[next])
 
+	st.generate_normals()
 	var mesh = st.commit()
 	$CactusMesh.mesh = mesh
+
+func _get_vertex_angle_color(vertex: Vector3, center: Vector3) -> Color:
+	var dir = vertex - center
+	var angle = atan2(dir.z, dir.x)  # -PI to PI
+	angle = (angle + PI) / (2.0 * PI)  # normalize to 0..1
+	
+	# Smooth seam: clamp angles near 0 and 1 to avoid hard jumps
+	if angle < 0.05:
+		angle = 0.05 + angle * 0.9
+	elif angle > 0.95:
+		angle = 0.95 - (1.0 - angle) * 0.9
+	
+	return Color(angle, 0, 0)
 
 func save_cactus(path: String):
 	var file = FileAccess.open(path, FileAccess.WRITE)

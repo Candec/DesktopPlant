@@ -38,4 +38,8 @@ func get_vertices(vertices_count: int) -> Array[Vector3]:
 
 		var rotated = Vector3(x, 0, z).rotated(Vector3(0, 0, 1), deg_to_rad(tilt))
 		verts.append(center + rotated)
+
+	# ✅ Duplicate first vertex at the end for seamless wrap
+	verts.append(verts[0])
+
 	return verts
