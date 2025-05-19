@@ -1,0 +1,28 @@
+[gd_resource type="Resource" script_class="PlantSpecies" load_steps=2 format=3 uid="uid://yvye8nrv3i8o"]
+
+[ext_resource type="Script" uid="uid://u83de1654xlv" path="res://resources/PlantSpecies.gd" id="1_0sw7p"]
+
+[resource]
+script = ExtResource("1_0sw7p")
+name = "Default Species"
+cactus_growth_speed = 0.005
+ring_thickness = 0.5
+valley_depth = 0.4
+branch_chance = 0.1
+flower_probability = 0.0
+ring_growth_speed = 1.0
+ring_rise_speed = 0.005
+ring_distance = 0.5
+ring_tilt = 0.0
+thickness_variance = 0.05
+distance_variance = 0.002
+tilt_variance = 0.0
+max_height = 3.0
+vertices_per_ring = 20
+branch_angle_range = 0.0
+segments_per_point = 4
+twist_enabled = false
+twist_amount = 15.0
+taper_top_enabled = false
+taper_start_ratio = 0.85
+metadata/_custom_type_script = "uid://u83de1654xlv"
