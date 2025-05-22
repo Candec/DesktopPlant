@@ -37,13 +37,13 @@ var is_paused := false
 
 @onready var mesh_instance: MeshInstance3D = $CactusMesh
 
-const RingData = preload("res://scripts/RingData.gd")
+const RingData = preload("res://zzOld/scripts/RingData.gd")
 
 # --- Preloaded Shaders ---
-var ridge_shader := preload("res://shaders/ridge_shader.gdshader")
-var cell_shader := preload("res://shaders/cell_shader.gdshader")
-var pixel_shader := preload("res://shaders/pixel_shader.gdshader")
-var cartoon_shader := preload("res://shaders/cartoon_shader.gdshader")
+var ridge_shader := preload("res://zzOld/shaders/ridge_shader.gdshader")
+var cell_shader := preload("res://zzOld/shaders/cell_shader.gdshader")
+var pixel_shader := preload("res://zzOld/shaders/pixel_shader.gdshader")
+var cartoon_shader := preload("res://zzOld/shaders/cartoon_shader.gdshader")
 
 # --- Materials for each style ---
 var ridge_mat := ShaderMaterial.new()
@@ -52,10 +52,17 @@ var pixel_mat := ShaderMaterial.new()
 var cartoon_mat := ShaderMaterial.new()
 
 func _ready():
+	get_viewport().transparent_bg = true
+	#get_tree().get_root().set_transparent_background(true)
+	#DisplayServer.window_set_flag(DisplayServer.WINDOW_FLAG_TRANSPARENT, true, 0)
+	##DisplayServer.window_set_flag(DisplayServer.WINDOW_FLAG_MOUSE_PASSTHROUGH, true, 0)
+	#DisplayServer.window_set_flag(DisplayServer.WINDOW_FLAG_ALWAYS_ON_TOP, true, 0)
+	#DisplayServer.window_set_flag(DisplayServer.WINDOW_FLAG_BORDERLESS, true, 0)
+	
 	_spawn_initial_rings()
 	ridge_mat.shader = ridge_shader
 	ridge_mat.set_shader_parameter("light_direction", Vector3(-0.4, -1.0, -0.2))
-	ridge_mat.set_shader_parameter("noise_texture", load("res://textures/noise.png"))
+	ridge_mat.set_shader_parameter("noise_texture", load("res://zzOld/textures/noise.png"))
 	ridge_mat.set_shader_parameter("color_crest", Color(0.9, 0.85, 0.7))  # pale yellow-white
 	ridge_mat.set_shader_parameter("highlight_intensity", 0.25)  # soft
 	cell_mat.shader = cell_shader

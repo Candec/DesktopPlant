@@ -1,0 +1,56 @@
+{
+  "PricklyPear": {
+	"max_height": 0.8,
+	"growth_speed": 0.15,
+	"color_palette": [
+	  "#4CAF50",
+	  "#388E3C",
+	  "#66BB6A"
+	],
+	"branching_rules": {
+	  "branches": 3,
+	  "angle_variation": 30
+	},
+	"bloom_behavior": {
+	  "blooms": true,
+	  "bloom_color": "#FFC107",
+	  "bloom_size": 0.15
+	}
+  },
+  "BalloonCactus": {
+	"max_height": 0.5,
+	"growth_speed": 0.1,
+	"color_palette": [
+	  "#2E7D32",
+	  "#1B5E20",
+	  "#66BB6A"
+	],
+	"branching_rules": {
+	  "branches": 0,
+	  "ribbed": true,
+	  "ribs_count": 8
+	},
+	"bloom_behavior": {
+	  "blooms": true,
+	  "bloom_color": "#E91E63",
+	  "bloom_size": 0.12
+	}
+  },
+  "SaguaroCactus": {
+	"max_height": 2.5,
+	"growth_speed": 0.05,
+	"color_palette": [
+	  "#388E3C",
+	  "#2E7D32",
+	  "#1B5E20"
+	],
+	"branching_rules": {
+	  "branches": 5,
+	  "angle_variation": 45,
+	  "arm_spacing": 0.6
+	},
+	"bloom_behavior": {
+	  "blooms": false
+	}
+  }
+}

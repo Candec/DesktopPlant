@@ -53,7 +53,7 @@ void fragment() {
 	vec3 color_hsv = rgb2hsv(color);
 	color_hsv.y = clamp(color_hsv.y * 1.5, 0.0, 1.0); // Increase saturation 30%
 	color = hsv2rgb(color_hsv);
-	
+
     // Apply subtle noise to color only
     float noise_val = texture(noise_texture, UV * noise_scale).r;
     color *= mix(1.0, noise_val, noise_strength);

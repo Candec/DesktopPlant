@@ -1,0 +1,10 @@
+[gd_scene load_steps=2 format=3 uid="uid://crrpxm8tjjbfk"]
+
+[ext_resource type="Script" uid="uid://dflmkqr8155bw" path="res://common/Camera.gd" id="1_3kbic"]
+
+[node name="Camera" type="Node3D"]
+script = ExtResource("1_3kbic")
+pan_speed_multiplier = 0.001
+
+[node name="Camera3D" type="Camera3D" parent="."]
+transform = Transform3D(1, 0, 0, 0, 1, 0, 0, 0, 1, 0, 0, 5)

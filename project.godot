@@ -11,9 +11,20 @@ config_version=5
 [application]
 
 config/name="Desktop_plant"
-run/main_scene="uid://e2epq1aagm4t"
+run/main_scene="uid://dq2qchillci4d"
 config/features=PackedStringArray("4.4", "Forward Plus")
+boot_splash/show_image=false
 config/icon="res://addons/proc_cactus/icon.svg"
+
+[display]
+
+window/size/borderless=true
+window/size/always_on_top=true
+window/vsync/vsync_mode=0
+
+[editor]
+
+movie_writer/movie_file="C:/Users/omniu/Videos/Cactus_Demo.avi"
 
 [editor_plugins]
 
