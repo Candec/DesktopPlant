@@ -1,112 +1,353 @@
-#extends PlantGenerator
-#class_name CactusGenerator
+extends Node3D
 
-@export var debug_visualization: bool = false
+@export var cactus_growth_speed: float = 0.005  # Overall growth speed of the cactus
+@export var ring_growth_speed: float = 1.0
+@export var ring_rise_speed: float = 0.005
+@export var ring_thickness: float = 0.5
+@export var ring_distance: float = 0.5
+@export var ring_tilt: float = 0.0
+@export var thickness_variance: float = 0.05
+@export var distance_variance: float = 0.002
+@export var tilt_variance: float = 0.0
+@export var max_height: float = 3.0
+@export var vertices_per_ring: int = 20
+@export var branch_chance: float = 0.1
+@export var branch_angle_range: float = 0.0
+@export var flower_probability: float = 0.0
+@export var segments_per_point: int = 4
+@export var valley_depth: float = 0.4
+@export var twist_enabled: bool = false
+@export var twist_amount: float = 15.0  # degrees per ring
+@export var taper_top_enabled: bool = false
+@export var taper_start_ratio: float = 0.85  # start tapering after 85% height
 
-# Default parameters that will be overridden by the species config
-var max_height: float = 3.0
-var growth_speed: float = 0.01
-var ring_distance: float = 0.5
-var ring_thickness: float = 0.5
-var vertices_per_ring: int = 20
-var flower_probability: float = 0.0  # Default value, can be modified by species config
+@export_category("time")
+@export var total_growth_duration: float = 300.0  # Total time in seconds to fully grow
+@export var growth_speed_multiplier: float = 1.0  # Adjust at runtime for debugging or slow growth
+
+var growth_time_elapsed := 0.0
+var growth_progress := 0.0  # Ranges from 0.0 to 1.0
 
 
 var rings := []
-#var growth_progress: float = 0.0  # From 0 to 1
-var growth_time_elapsed: float = 0.0  # Time passed in seconds
+var branches := []
+var flowers := []
+var cactus_height := 0.0
+var is_paused := false
 
-@onready var mesh_instance: MeshInstance3D = MeshInstance3D.new()
+@onready var mesh_instance: MeshInstance3D = $CactusMesh
 
-# This will hold the species config loaded from the JSON
-var cactus_species_config: Dictionary = {}
+const RingData = preload("res://scripts/RingData.gd")
 
-# Load species configuration (this will be called when a species is selected)
-func _load_species_config(species_name: String):
-	var path = "res://plants/cactus/cactus_species.json"  # Adjust path to your actual JSON file
-	var file = FileAccess.open(path, FileAccess.READ)
-	if file:
-		var json_text = file.get_as_text()
-		file.close()
-		
-		var parse_result = JSON.parse_string(json_text)
-		if parse_result.error == OK:
-			cactus_species_config = parse_result.result.get(species_name, {})
-			if cactus_species_config.size() > 0:
-				# Apply the configuration to the cactus generator
-				max_height = cactus_species_config.get("max_height", max_height)
-				growth_speed = cactus_species_config.get("growth_speed", growth_speed)
-				ring_distance = cactus_species_config.get("ring_distance", ring_distance)
-				ring_thickness = cactus_species_config.get("ring_thickness", ring_thickness)
-				vertices_per_ring = cactus_species_config.get("vertices_per_ring", vertices_per_ring)
-				flower_probability = cactus_species_config.get("flower_probability", 0.0)
-		else:
-			push_error("Error parsing cactus species configuration for " + species_name)
-	else:
-		push_error("Error opening species config file")
+# --- Preloaded Shaders ---
+var ridge_shader := preload("res://shaders/ridge_shader.gdshader")
+var cell_shader := preload("res://shaders/cell_shader.gdshader")
+var pixel_shader := preload("res://shaders/pixel_shader.gdshader")
+var cartoon_shader := preload("res://shaders/cartoon_shader.gdshader")
 
-# Called when the plant is generated
-func generate_plant(species_name: String):
-	_load_species_config(species_name)  # Load species-specific settings
-	_generate_structure()  # Generate the cactus structure
-	_update_growth(growth_progress)  # Initialize growth
+# --- Materials for each style ---
+var ridge_mat := ShaderMaterial.new()
+var cell_mat := ShaderMaterial.new()
+var pixel_mat := ShaderMaterial.new()
+var cartoon_mat := ShaderMaterial.new()
 
-func _generate_structure():
-	rings.clear()
-	var current_height := 0.0
-	while current_height <= max_height:
-		rings.append(_create_ring(Vector3(0, current_height, 0)))
-		current_height += ring_distance
+func _ready():
+	_spawn_initial_rings()
+	ridge_mat.shader = ridge_shader
+	ridge_mat.set_shader_parameter("light_direction", Vector3(-0.4, -1.0, -0.2))
+	ridge_mat.set_shader_parameter("noise_texture", load("res://textures/noise.png"))
+	ridge_mat.set_shader_parameter("color_crest", Color(0.9, 0.85, 0.7))  # pale yellow-white
+	ridge_mat.set_shader_parameter("highlight_intensity", 0.25)  # soft
+	cell_mat.shader = cell_shader
+	pixel_mat.shader = pixel_shader
+	cartoon_mat.shader = cartoon_shader
+	
+	# Default material at start
+	$CactusMesh.material_override = ridge_mat
 
-func _update_growth(progress: float):
-	growth_progress = progress
-	var full_rings = int(progress * rings.size())
-	for i in range(rings.size()):
-		rings[i].radius = ring_thickness if i <= full_rings else 0.0
+func _process(delta):
+	if is_paused or cactus_height >= max_height:
+		return
+	_update_ring_growth(delta)
 	_generate_mesh()
+	_draw_debug()
+
+func _spawn_initial_rings():
+	rings.clear()
+	branches.clear()
+	flowers.clear()
+	cactus_height = 0.0
+
+	var current_height := 0.0
+	var ring_count := 0
+
+	while current_height <= max_height:
+		var pos = Vector3(0, current_height, 0)
+		var ring = _create_ring(pos)
+		ring.index = ring_count
+		rings.append(ring)
+
+		current_height += ring_distance + randf_range(-distance_variance, distance_variance)
+		ring_count += 1
+
+	# Assign normalized_index after ring count is known
+	for i in range(rings.size()):
+		#rings[i].normalized_index = float(i) / float(rings.size() - 1)
+		var ring = rings[i]
+		ring.index = i
+		ring.normalized_index = float(i) / max(rings.size() - 1, 1)
+
+
+func _create_ring(pos: Vector3) -> RingData:
+	var ring = RingData.new()
+	ring.center = pos
+	ring.radius = 0.0
+	ring.tip_thickness_variance = ring_thickness / 2 + randf_range(-thickness_variance, thickness_variance)
+	ring.tip_target_y = pos.y + randf_range(-ring_distance, ring_distance)
+	ring.thickness = ring_thickness + randf_range(-thickness_variance, thickness_variance)
+	ring.tilt = ring_tilt + randf_range(-tilt_variance, tilt_variance)
+	ring.progress = 0.0
+	ring.active = true
+	ring.start_y = pos.y - ring_distance # Underground start (can tweak multiplier)
+	ring.target_y = pos.y + ring_distance * 2
+	ring.center.y = ring.start_y  # Start visually lower
+	ring.segments_per_point = segments_per_point
+
+	# Gradual tapering as the cactus grows
+	var height_ratio = cactus_height / max_height
+	if height_ratio > 0.85:  # Start tapering after 85% height
+		var taper_factor = 1.0 - (height_ratio - 0.85) * 4.0  # Reduce radius at the top
+		ring.radius *= taper_factor
+
+	# Smoothly reduce the valley depth at the top
+	if height_ratio > 0.85:
+		var fade = inverse_lerp(0.85, 1.0, height_ratio)
+		ring.valley_depth = valley_depth * (1.0 - fade)
+	else:
+		ring.valley_depth = valley_depth
+	
+	if twist_enabled:
+		ring.twist_offset = deg_to_rad(rings.size() * twist_amount)
+
+	return ring
+
+
+func _update_ring_growth(delta: float):
+	growth_time_elapsed += delta * growth_speed_multiplier
+	growth_progress = clamp(growth_time_elapsed / total_growth_duration, 0.0, 1.0)
+
+	var full_ring_count := int(growth_progress * rings.size())
+
+	for ring in rings:
+		
+		var ring_start = ring.normalized_index * 0.8
+		var ring_end = ring_start + 0.25
+		var t = inverse_lerp(ring_start, ring_end, growth_progress)
+		t = clamp(t, 0.0, 1.0)
+
+		var eased = ease(t, -1.5)  # optional ease-out
+
+		# Last ring
+		if ring.index == rings.size() - 1:
+			ring.thickness = 0.0
+			ring.target_y = ring.tip_target_y
+		# Before last ring for tampering
+		if ring.index == rings.size() - 2:
+			ring.thickness = ring.tip_thickness_variance
+			#ring.target_y = ring.target_y * 0.75
+		#
+		#if ring.index == rings.size() - 3:
+			#ring.thickness = ring.tip_thickness_variance
+			#ring.target_y = ring.target_y * 0.25
+		
+		#if ring.index == 0:
+			#t = growth_progress
+			#eased = ease(-2.0, 2)
+			#ring.progress = eased
+			#ring.radius = eased * ring.thickness
+			#ring.center.y = inverse_lerp(ring.start_y, ring.target_y, eased)
+			
+		# General logic
+		ring.progress = eased
+		ring.radius = ring.progress * ring.thickness
+		ring.center.y = lerp(ring.start_y, ring.target_y, eased)
+
+
+
+
+func _spawn_branch_from(base_ring: RingData):
+	var angle = randf_range(-branch_angle_range, branch_angle_range)
+	var direction = Vector3(sin(deg_to_rad(angle)), 0.5, cos(deg_to_rad(angle))).normalized()
+	var branch_pos = base_ring.center + direction * ring_distance
+	var ring = _create_ring(branch_pos)
+	ring.tilt = angle
+	branches.append(ring)
+	rings.append(ring)
+	if randf() < flower_probability:
+		_spawn_flower(branch_pos + Vector3(0, 0.2, 0))
+
+func _spawn_flower(pos: Vector3):
+	var flower = MeshInstance3D.new()
+	flower.mesh = SphereMesh.new()
+	flower.scale = Vector3(0.1, 0.1, 0.1)
+	flower.translation = pos
+	flowers.append(flower)
+	add_child(flower)
 
 func _generate_mesh():
+	var segments := vertices_per_ring  # how many "quads" to build
 	var st = SurfaceTool.new()
 	st.begin(Mesh.PRIMITIVE_TRIANGLES)
 
 	for i in range(rings.size() - 1):
-		var ring1 = _get_ring_vertices(rings[i])
-		var ring2 = _get_ring_vertices(rings[i + 1])
-		for j in range(vertices_per_ring):
-			var next = (j + 1) % vertices_per_ring
+		var ring1 = rings[i].get_vertices(vertices_per_ring)
+		var ring2 = rings[i + 1].get_vertices(vertices_per_ring)
+
+		for j in range(segments):  # loop over quads
+			var next = j + 1
+
+			var u = float(j) / float(segments)
+			var u_next = float(next) / float(segments)
+			var v = float(i) / float(rings.size())
+			var v_next = float(i + 1) / float(rings.size())
+
+			# Triangle 1
+			st.set_color(_get_vertex_angle_color(ring2[j], rings[i + 1].center))
+			st.set_uv(Vector2(u, v_next))
 			st.add_vertex(ring2[j])
+
+			st.set_color(_get_vertex_angle_color(ring1[j], rings[i].center))
+			st.set_uv(Vector2(u, v))
 			st.add_vertex(ring1[j])
+
+			st.set_color(_get_vertex_angle_color(ring2[next], rings[i + 1].center))
+			st.set_uv(Vector2(u_next, v_next))
 			st.add_vertex(ring2[next])
 
+			# Triangle 2
+			st.set_color(_get_vertex_angle_color(ring2[next], rings[i + 1].center))
+			st.set_uv(Vector2(u_next, v_next))
 			st.add_vertex(ring2[next])
+
+			st.set_color(_get_vertex_angle_color(ring1[j], rings[i].center))
+			st.set_uv(Vector2(u, v))
 			st.add_vertex(ring1[j])
+
+			st.set_uv(Vector2(u_next, v))
+			st.set_color(_get_vertex_angle_color(ring1[next], rings[i].center))
 			st.add_vertex(ring1[next])
 
 	st.generate_normals()
-	mesh_instance.mesh = st.commit()
+	var mesh = st.commit()
+	$CactusMesh.mesh = mesh
 
-	if debug_visualization:
-		_draw_debug_geometry()
+func _get_vertex_angle_color(vertex: Vector3, center: Vector3) -> Color:
+	var dir = vertex - center
+	var angle = atan2(dir.z, dir.x)  # -PI to PI
+	angle = (angle + PI) / (2.0 * PI)  # normalize to 0..1
+	
+	# Smooth seam: clamp angles near 0 and 1 to avoid hard jumps
+	if angle < 0.05:
+		angle = 0.05 + angle * 0.9
+	elif angle > 0.95:
+		angle = 0.95 - (1.0 - angle) * 0.9
+	
+	return Color(angle, 0, 0)
 
-func _create_ring(pos: Vector3) -> Dictionary:
-	var ring = {
-		"center": pos,
-		"radius": 0.0
-	}
-	return ring
+func save_cactus(path: String):
+	var file = FileAccess.open(path, FileAccess.WRITE)
+	file.store_line("CactusConfig")
+	file.store_line("rings=%d" % rings.size())
+	for ring in rings:
+		file.store_line("ring:%.3f,%.3f,%.3f,%.3f" % [ring.center.y, ring.radius, ring.thickness, ring.tilt])
+	file.store_line("branches=%d" % branches.size())
+	for b in branches:
+		file.store_line("branch:%.3f,%.3f,%.3f,%.3f" % [b.center.y, b.radius, b.thickness, b.tilt])
+	file.store_line("flowers=%d" % flowers.size())
+	for f in flowers:
+		file.store_line("flower:%.3f,%.3f,%.3f" % [f.translation.x, f.translation.y, f.translation.z])
+	file.close()
 
-func _get_ring_vertices(ring: Dictionary) -> Array:
-	var verts = []
-	var center = ring.center
-	var radius = ring.radius
-	for i in range(vertices_per_ring):
-		var angle = (2.0 * PI * i) / vertices_per_ring
-		verts.append(Vector3(center.x + cos(angle) * radius, center.y, center.z + sin(angle) * radius))
-	return verts
+func load_cactus(path: String):
+	rings.clear()
+	branches.clear()
+	flowers.clear()
+	var file = FileAccess.open(path, FileAccess.READ)
+	while not file.eof_reached():
+		var line = file.get_line()
+		if line.begins_with("ring:"):
+			var d = line.replace("ring:", "").split(",")
+			var ring = RingData.new()
+			ring.center = Vector3(0, float(d[0]), 0)
+			ring.radius = float(d[1])
+			ring.thickness = float(d[2])
+			ring.tilt = float(d[3])
+			ring.progress = 1.0
+			rings.append(ring)
+		elif line.begins_with("branch:"):
+			var d = line.replace("branch:", "").split(",")
+			var ring = RingData.new()
+			ring.center = Vector3(0, float(d[0]), 0)
+			ring.radius = float(d[1])
+			ring.thickness = float(d[2])
+			ring.tilt = float(d[3])
+			ring.progress = 1.0
+			branches.append(ring)
+			rings.append(ring)
+		elif line.begins_with("flower:"):
+			var d = line.replace("flower:", "").split(",")
+			var pos = Vector3(float(d[0]), float(d[1]), float(d[2]))
+			_spawn_flower(pos)
+	file.close()
+	_generate_mesh()
 
-func _process(delta: float) -> void:
-	if growth_progress < 1.0:
-		growth_time_elapsed += delta * growth_speed
-		growth_progress = clamp(growth_time_elapsed / max_height, 0.0, 1.0)
+func toggle_pause():
+	is_paused = not is_paused
 
-		_update_growth(growth_progress)
+func restart_growth():
+	_spawn_initial_rings()
+	_generate_mesh()
+	
+func _clear_flower_nodes():
+	for child in get_children():
+		if child is MeshInstance3D and child.name.begins_with("Flower"):
+			remove_child(child)
+			child.queue_free()
+
+# Debug Menu
+func reset():
+	rings.clear()
+	branches.clear()
+	flowers.clear()
+	cactus_height = 0.0
+	_clear_flower_nodes()
+	_spawn_initial_rings()
+	
+func _draw_debug():
+	var mesh = ImmediateMesh.new()
+	mesh.clear_surfaces()
+	mesh.surface_begin(Mesh.PRIMITIVE_LINES)
+	
+	for i in range(rings.size() - 1):
+		var ring1 = rings[i].get_vertices(vertices_per_ring)
+		var ring2 = rings[i + 1].get_vertices(vertices_per_ring)
+		
+		for j in range(vertices_per_ring):
+			var next = (j + 1) % vertices_per_ring
+
+			# Ring edges
+			mesh.surface_add_vertex(ring1[j])
+			mesh.surface_add_vertex(ring1[next])
+
+			mesh.surface_add_vertex(ring2[j])
+			mesh.surface_add_vertex(ring2[next])
+
+			# Vertical lines between rings
+			mesh.surface_add_vertex(ring1[j])
+			mesh.surface_add_vertex(ring2[j])
+	
+	mesh.surface_end()
+	$DebugVisualizer.mesh = mesh
+
+func set_cactus_material(mat: ShaderMaterial):
+	$CactusMesh.material_override = mat
