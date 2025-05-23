@@ -1,6 +1,6 @@
-[gd_scene load_steps=8 format=3 uid="uid://dq2qchillci4d"]
+[gd_scene load_steps=8 format=3 uid="uid://blgtmp2fpl2qo"]
 
-[ext_resource type="Script" uid="uid://dvxef47c5qr57" path="res://main.gd" id="1_0xm2m"]
+[ext_resource type="Script" path="res://main.gd" id="1_0xm2m"]
 [ext_resource type="PackedScene" uid="uid://c5jwy1502iyxp" path="res://common/UISelector.tscn" id="2_h2yge"]
 [ext_resource type="PackedScene" uid="uid://bhfir77odgyib" path="res://common/Camera.tscn" id="3_h2yge"]
 [ext_resource type="PackedScene" uid="uid://c6swkbjrr5t3" path="res://common/PlantDebugPanel.tscn" id="4_1bvp3"]
@@ -57,6 +57,7 @@ transform = Transform3D(1, 0, 0, 0, 0.852932, 0.522022, 0, -0.522022, 0.852932, 
 [node name="CanvasLayer" type="CanvasLayer" parent="."]
 
 [node name="UISelector" parent="CanvasLayer" instance=ExtResource("2_h2yge")]
+metadata/_edit_use_anchors_ = true
 
 [node name="PlantDebugPanel" parent="CanvasLayer" instance=ExtResource("4_1bvp3")]
 anchors_preset = 4
@@ -65,6 +66,7 @@ anchor_bottom = 0.5
 offset_top = -107.0
 offset_bottom = -107.0
 grow_vertical = 2
+metadata/_edit_use_anchors_ = true
 
 [node name="DirectionalLight3D" type="DirectionalLight3D" parent="."]
 transform = Transform3D(0.0716073, -0.583611, 0.80887, -0.032066, 0.809186, 0.586677, -0.996917, -0.0679476, 0.0392295, 0, 2.40174, 0)
