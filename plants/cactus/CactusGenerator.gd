@@ -83,6 +83,12 @@ func _generate_mesh():
 
 	st.generate_normals()
 	mesh_instance.mesh = st.commit()
+	
+	# ✅ Add a basic material for visibility
+	var mat := StandardMaterial3D.new()
+	mat.albedo_color = Color(0.4, 1.0, 0.5)  # Light green cactus color
+	mat.cull_mode = BaseMaterial3D.CULL_DISABLED  # Optional, helps show inside faces
+	mesh_instance.material_override = mat
 
 	if debug_visualization:
 		_draw_debug_geometry()
@@ -134,6 +140,7 @@ func _draw_debug_geometry():
 	debug_mesh_instance.surface_end()
 
 func _ready() -> void:
+	add_child(mesh_instance)
 	generate_plant()
 
 # Process function to handle growth over time

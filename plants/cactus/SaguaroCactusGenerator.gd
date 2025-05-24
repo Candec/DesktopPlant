@@ -19,7 +19,3 @@ func _generate_structure():
 func _spawn_branch(position: Vector3):
 	var branch_pos = position + Vector3(randf_range(-1,1), 0, randf_range(-1,1))
 	branches.append(_create_ring(branch_pos))
-
-#func _update_growth(progress: float):
-	#_update_growth(progress)
-	## Optionally, update branches here (not implemented yet)
